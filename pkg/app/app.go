@@ -9,10 +9,10 @@ import (
 )
 
 func Run(ctx context.Context) error {
-	// connecting to our mongoDB
+	// connect to our mongoDB
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://127.0.0.1:27017"))
 	if err != nil {
-		logrus.Error("eccour") // доделать
+		logrus.Error("an error has occurred")
 		return err
 	}
 
