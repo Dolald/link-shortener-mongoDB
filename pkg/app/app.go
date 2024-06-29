@@ -3,7 +3,10 @@ package app
 import (
 	"context"
 	"log"
+	"net/http"
+	"shortener/pkg/handler_http"
 	"shortener/pkg/repository"
+	"shortener/pkg/service"
 	"time"
 
 	"github.com/spf13/viper"
@@ -39,14 +42,17 @@ func Run(ctx context.Context) error {
 	}()
 
 	// Создание экземпляра UrlDAO
-	_, err = repository.NewUrlDAO(ctx, client)
+	shortUrlDAO, err := repository.NewUrlDAO(ctx, client)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	service := service.NewService(shortUrlDAO)
+	handler := handler_http.NewHandler(service)
+
 	log.Println("The database was created and indices were set up successfully")
 
-	return err
+	return http.ListenAndServe("localhost:8080", handler_http.InitRoutes(handler))
 }
 
 func configsInit() error {

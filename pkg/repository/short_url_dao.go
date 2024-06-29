@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"shortener/pkg"
 
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/bson"
@@ -35,5 +36,10 @@ func (dao *UrlDAO) createIndices(ctx context.Context) error {
 		Options: options.Index().SetExpireAfterSeconds(0),
 	})
 	fmt.Println("The database was created")
+	return err
+}
+
+func (dao *UrlDAO) Insert(ctx context.Context, shortURL *pkg.ShortURL) error {
+	_, err := dao.db.InsertOne(ctx, shortURL)
 	return err
 }

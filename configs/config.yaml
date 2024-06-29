@@ -1,4 +1,4 @@
-port: "27017"
+port: "8080"
 
 db:
   host: "localhost"
