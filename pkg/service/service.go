@@ -12,6 +12,7 @@ import (
 
 type Repository interface {
 	Insert(ctx context.Context, shortURL *pkg.ShortURL) error
+	FindByID(ctx context.Context, id string) (*pkg.ShortURL, error)
 }
 
 type Service struct {
@@ -28,22 +29,49 @@ func NewService(urlDAO *repository.UrlDAO) *Service {
 
 func (s *Service) Shorten(ctx context.Context, url string, ttlDays int) (*pkg.ShortURL, error) {
 	shortURL := &pkg.ShortURL{
-		URL: url,
-		//ExpireAt: getExpirationTime(ttlDays),
+		URL:       url,
+		ExpiredAt: getExpirationTime(ttlDays),
 	}
 
-	for it := 0; it < 10; it++ {
-		shortURL.Id = s.generateRandomID()
-
+	for i := 0; i < 10; i++ {
+		shortURL.Id = s.generateRandomId()
 		err := s.urlDAO.Insert(ctx, shortURL)
-		if err == nil {
-			return shortURL, nil
+		if err != nil {
+			return shortURL, err
 		}
 
 		if !mongo.IsDuplicateKeyError(err) {
 			return nil, err
 		}
 	}
+	return nil, pkg.ErrCollision
+}
 
-	return nil, ErrCollision
+func (s *Service) GetFullURL(ctx context.Context, shortURL string) (string, error) {
+	sURL, err := s.urlDAO.FindByID(ctx, shortURL)
+	if err != nil {
+		return "", err
+	}
+	return sURL.URL, nil
+}
+
+func getExpirationTime(ttlDays int) *time.Time {
+	if ttlDays <= 0 {
+		return nil
+	}
+	t := time.Now().Add(time.Hour * 24 * time.Duration(ttlDays))
+	return &t
+}
+
+var symbols = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+const idLength = 6
+
+func (s *Service) generateRandomId() string {
+	id := make([]rune, idLength)
+
+	for i := range id {
+		id[i] = symbols[s.rnd.Intn(len(symbols))]
+	}
+	return string(id)
 }
