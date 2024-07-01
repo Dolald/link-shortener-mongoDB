@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"shortener/pkg"
-	"shortener/pkg/service"
 
 	"github.com/gorilla/mux"
 )
@@ -19,10 +18,10 @@ type Service interface {
 }
 
 type Handler struct {
-	service *service.Service
+	service Service
 }
 
-func NewHandler(service *service.Service) *Handler {
+func NewHandler(service Service) *Handler {
 	return &Handler{
 		service: service,
 	}
@@ -66,7 +65,14 @@ func (h *Handler) GetFullURL(w http.ResponseWriter, r *http.Request) (any, error
 	if !ok {
 		return nil, fmt.Errorf("missing shortUrl path parameter")
 	}
-	return h.service.GetFullURL(r.Context(), val)
+	fullURL, err := h.service.GetFullURL(r.Context(), val)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return nil, err
+	}
+
+	http.Redirect(w, r, fullURL, http.StatusFound)
+	return nil, nil
 }
 
 // func (h *Handler) Ping(w http.ResponseWriter, r *http.Request) (any, error) {
@@ -93,7 +99,7 @@ func WrapEndpoint(e EndpointHandler) http.HandlerFunc {
 
 		// define our content type
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
+		//w.WriteHeader(http.StatusOK) // in my opinion it doesn't need
 		w.Write(data)
 	}
 }

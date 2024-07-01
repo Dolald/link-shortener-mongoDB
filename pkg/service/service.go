@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"shortener/pkg"
 	"shortener/pkg/repository"
@@ -27,7 +28,7 @@ func NewService(urlDAO *repository.UrlDAO) *Service {
 	}
 }
 
-func (s *Service) Shorten(ctx context.Context, url string, ttlDays int) (*pkg.ShortURL, error) {
+func (s *Service) Shorten(ctx context.Context, url string, ttlDays int) (string, error) {
 	shortURL := &pkg.ShortURL{
 		URL:       url,
 		ExpiredAt: getExpirationTime(ttlDays),
@@ -37,14 +38,16 @@ func (s *Service) Shorten(ctx context.Context, url string, ttlDays int) (*pkg.Sh
 		shortURL.Id = s.generateRandomId()
 		err := s.urlDAO.Insert(ctx, shortURL)
 		if err != nil {
-			return shortURL, err
+			return "shortURL", err
 		}
+		returnedUrl := fmt.Sprintf("localhost:8080/%s", shortURL.Id)
 
 		if !mongo.IsDuplicateKeyError(err) {
-			return nil, err
+			return returnedUrl, err
 		}
 	}
-	return nil, pkg.ErrCollision
+
+	return "", nil
 }
 
 func (s *Service) GetFullURL(ctx context.Context, shortURL string) (string, error) {
