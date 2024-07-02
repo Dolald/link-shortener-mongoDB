@@ -24,35 +24,33 @@ func Run(ctx context.Context) error {
 		Username: viper.GetString("db.username"),
 		Password: viper.GetString("db.password"),
 	})
-
+	// if request handle  more than 10 seconds cancle the request
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Подключение к MongoDB
+	// connect to MongoDB
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Отключение от MongoDB при завершении работы
 	defer func() {
 		if err := client.Disconnect(ctx); err != nil {
 			log.Fatal(err)
 		}
 	}()
 
-	// Создание экземпляра UrlDAO
-	shortUrlDAO, err := repository.NewUrlDAO(ctx, client)
+	repository, err := repository.NewRepository(ctx, client)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	service := service.NewService(shortUrlDAO)
+	service := service.NewService(repository)
 	handler := handler_http.NewHandler(service)
 
 	log.Println("The database was created and indices were set up successfully")
 
-	return http.ListenAndServe("localhost:8080", handler_http.InitRoutes(handler))
+	return http.ListenAndServe("localhost:8080", handler.InitRoutes())
 }
 
 func configsInit() error {

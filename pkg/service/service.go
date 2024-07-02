@@ -4,32 +4,40 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"shortener/pkg"
+	domain "shortener/pkg/domain"
 	"shortener/pkg/repository"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type Repository interface {
-	Insert(ctx context.Context, shortURL *pkg.ShortURL) error
-	FindByID(ctx context.Context, id string) (*pkg.ShortURL, error)
+// type Service interface {
+// 	Insert(ctx context.Context, shortURL *pkg.ShortURL) error
+// 	FindByID(ctx context.Context, id string) (*pkg.ShortURL, error)
+// 	Update(ctx context.Context, shortUrl *pkg.ShortURL) error
+// }
+
+type Service interface {
+	Shorten(ctx context.Context, url string, ttlDays int) (string, error)
+	GetFullURL(ctx context.Context, shortURL string) (string, error)
+	Update(ctx context.Context, id, url string, ttl int) (string, error)
+	Delete(ctx context.Context) (string, error)
 }
 
-type Service struct {
+type service struct {
 	rnd    *rand.Rand
-	urlDAO Repository
+	urlDAO repository.Repository
 }
 
-func NewService(urlDAO *repository.UrlDAO) *Service {
-	return &Service{
+func NewService(urlDAO repository.Repository) Service {
+	return &service{
 		rnd:    rand.New(rand.NewSource(time.Now().UnixNano())),
 		urlDAO: urlDAO,
 	}
 }
 
-func (s *Service) Shorten(ctx context.Context, url string, ttlDays int) (string, error) {
-	shortURL := &pkg.ShortURL{
+func (s *service) Shorten(ctx context.Context, url string, ttlDays int) (string, error) {
+	shortURL := &domain.ShortURL{
 		URL:       url,
 		ExpiredAt: getExpirationTime(ttlDays),
 	}
@@ -38,7 +46,7 @@ func (s *Service) Shorten(ctx context.Context, url string, ttlDays int) (string,
 		shortURL.Id = s.generateRandomId()
 		err := s.urlDAO.Insert(ctx, shortURL)
 		if err != nil {
-			return "shortURL", err
+			return "", err
 		}
 		returnedUrl := fmt.Sprintf("localhost:8080/%s", shortURL.Id)
 
@@ -50,12 +58,32 @@ func (s *Service) Shorten(ctx context.Context, url string, ttlDays int) (string,
 	return "", nil
 }
 
-func (s *Service) GetFullURL(ctx context.Context, shortURL string) (string, error) {
+func (s *service) GetFullURL(ctx context.Context, shortURL string) (string, error) {
 	sURL, err := s.urlDAO.FindByID(ctx, shortURL)
 	if err != nil {
 		return "", err
 	}
+
 	return sURL.URL, nil
+}
+
+func (s *service) Update(ctx context.Context, id, url string, ttl int) (string, error) {
+	// find our full url with short url
+	shortUrl, err := s.urlDAO.FindByID(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("Update/FindByID: %w", err)
+	}
+
+	shortUrl.URL = url
+	// create new ttl if it exists
+	shortUrl.ExpiredAt = getExpirationTime(ttl)
+
+	return "http.StatusOK", s.urlDAO.Update(ctx, shortUrl)
+}
+
+func (s *service) Delete(ctx context.Context) (string, error) {
+
+	return "", nil
 }
 
 func getExpirationTime(ttlDays int) *time.Time {
@@ -63,6 +91,7 @@ func getExpirationTime(ttlDays int) *time.Time {
 		return nil
 	}
 	t := time.Now().Add(time.Hour * 24 * time.Duration(ttlDays))
+
 	return &t
 }
 
@@ -70,7 +99,7 @@ var symbols = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ012345
 
 const idLength = 6
 
-func (s *Service) generateRandomId() string {
+func (s *service) generateRandomId() string {
 	id := make([]rune, idLength)
 
 	for i := range id {

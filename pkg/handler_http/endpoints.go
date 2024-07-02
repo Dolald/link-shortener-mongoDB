@@ -6,10 +6,12 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func InitRoutes(h *Handler) *mux.Router {
+func (h *handler) InitRoutes() *mux.Router {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/shorten", WrapEndpoint(h.Shorten)).Methods(http.MethodPost)
-	router.HandleFunc("/{shortUrl}", WrapEndpoint(h.GetFullURL)).Methods(http.MethodGet)
+	router.HandleFunc("/shorten", wrapEndpoint(h.shorten)).Methods(http.MethodPost)
+	router.HandleFunc("/{shortUrl}", wrapEndpoint(h.getFullURL)).Methods(http.MethodGet)
+	router.HandleFunc("/update/{shortUrl}", wrapEndpoint(h.update)).Methods(http.MethodPut)
+	router.HandleFunc("/{shortUrl}", wrapEndpoint(h.delete)).Methods(http.MethodDelete)
 	return router
 }
