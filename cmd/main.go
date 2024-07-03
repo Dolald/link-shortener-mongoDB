@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"shortener/pkg/app"
+	"shortener/internal/app"
 )
 
 func main() {

@@ -2,27 +2,36 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
-	"shortener/pkg/handler_http"
-	"shortener/pkg/repository"
-	"shortener/pkg/service"
+	"os"
+	"shortener/internal/handler_http"
+	"shortener/internal/repository"
+	"shortener/internal/service"
+
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func Run(ctx context.Context) error {
-
+	// load configs variable
 	if err := configsInit(); err != nil {
-		return err
+		return fmt.Errorf("Run.configsInit: %w", err)
 	}
 
-	clientOptions := options.Client().ApplyURI("mongodb://root:qwerty@localhost:27017").SetAuth(options.Credential{
+	// load env variable
+	if err := godotenv.Load(); err != nil {
+		return fmt.Errorf("app/Run/godotenv: %w", err)
+	}
+
+	clientOptions := options.Client().ApplyURI("mongodb://root:" + os.Getenv("DB_PASSWORD") + "qwerty@localhost:27017").SetAuth(options.Credential{ // чекнуть что это
 		Username: viper.GetString("db.username"),
-		Password: viper.GetString("db.password"),
+		Password: os.Getenv("DB_PASSWORD"),
 	})
 	// if request handle  more than 10 seconds cancle the request
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -31,18 +40,18 @@ func Run(ctx context.Context) error {
 	// connect to MongoDB
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("Run/Connect: %w", err)
 	}
-
+	// defer disconnecting
 	defer func() {
 		if err := client.Disconnect(ctx); err != nil {
-			log.Fatal(err)
+			log.Fatal(fmt.Errorf("Run/Disconnect: %w", err))
 		}
 	}()
 
 	repository, err := repository.NewRepository(ctx, client)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(fmt.Errorf("Run/NewRepository: %w", err))
 	}
 
 	service := service.NewService(repository)

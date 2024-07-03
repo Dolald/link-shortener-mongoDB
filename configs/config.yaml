@@ -3,6 +3,5 @@ port: "8080"
 db:
   host: "localhost"
   username: "root"
-  password: "qwerty"
   dbname: "mongoDB"
   collection: "shortUrls"

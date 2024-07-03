@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	domain "shortener/pkg/domain"
-	"shortener/pkg/repository"
+	domain "shortener/internal/domain"
+	"shortener/internal/repository"
+
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -18,7 +19,7 @@ import (
 // }
 
 type Service interface {
-	Shorten(ctx context.Context, url string, ttlDays int) (string, error)
+	Shorten(ctx context.Context, url string, ttlDays int) error
 	GetFullURL(ctx context.Context, shortURL string) (string, error)
 	Update(ctx context.Context, id, url string, ttl int) (string, error)
 	Delete(ctx context.Context) (string, error)
@@ -36,7 +37,7 @@ func NewService(urlDAO repository.Repository) Service {
 	}
 }
 
-func (s *service) Shorten(ctx context.Context, url string, ttlDays int) (string, error) {
+func (s *service) Shorten(ctx context.Context, url string, ttlDays int) error {
 	shortURL := &domain.ShortURL{
 		URL:       url,
 		ExpiredAt: getExpirationTime(ttlDays),
@@ -46,16 +47,16 @@ func (s *service) Shorten(ctx context.Context, url string, ttlDays int) (string,
 		shortURL.Id = s.generateRandomId()
 		err := s.urlDAO.Insert(ctx, shortURL)
 		if err != nil {
-			return "", err
+			return err
 		}
-		returnedUrl := fmt.Sprintf("localhost:8080/%s", shortURL.Id)
+		//returnedUrl := fmt.Sprintf("localhost:8080/%s", shortURL.Id)
 
 		if !mongo.IsDuplicateKeyError(err) {
-			return returnedUrl, err
+			return err
 		}
 	}
 
-	return "", nil
+	return nil
 }
 
 func (s *service) GetFullURL(ctx context.Context, shortURL string) (string, error) {

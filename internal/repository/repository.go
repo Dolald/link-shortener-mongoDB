@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 	"fmt"
-	"shortener/pkg"
-	domain "shortener/pkg/domain"
+	internal "shortener/internal"
+	domain "shortener/internal/domain"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -50,7 +50,7 @@ func (r *repository) Update(ctx context.Context, shortUrl *domain.ShortURL) erro
 	}
 
 	if updatedRequest.MatchedCount == 0 {
-		return pkg.ErrNotFound
+		return internal.ErrNotFound
 	}
 	return nil
 }
