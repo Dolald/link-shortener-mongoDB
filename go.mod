@@ -2,16 +2,18 @@ module shortener
 
 go 1.21.5
 
-require go.mongodb.org/mongo-driver v1.15.1
+require (
+	github.com/gorilla/mux v1.8.1
+	github.com/joho/godotenv v1.5.1
+	github.com/sirupsen/logrus v1.9.3
+	github.com/spf13/viper v1.19.0
+	go.mongodb.org/mongo-driver v1.15.1
+)
 
 require (
-	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/compress v1.17.2 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
@@ -23,7 +25,6 @@ require (
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.19.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect

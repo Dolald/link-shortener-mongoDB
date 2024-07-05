@@ -4,40 +4,36 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	configs "shortener/configs"
 	domain "shortener/internal/domain"
 	"shortener/internal/repository"
 
 	"time"
 
+	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-// type Service interface {
-// 	Insert(ctx context.Context, shortURL *pkg.ShortURL) error
-// 	FindByID(ctx context.Context, id string) (*pkg.ShortURL, error)
-// 	Update(ctx context.Context, shortUrl *pkg.ShortURL) error
-// }
-
 type Service interface {
-	Shorten(ctx context.Context, url string, ttlDays int) error
-	GetFullURL(ctx context.Context, shortURL string) (string, error)
-	Update(ctx context.Context, id, url string, ttl int) (string, error)
-	Delete(ctx context.Context) (string, error)
+	Shorten(ctx context.Context, url string, ttlDays int) ([]byte, error)
+	GetFullURL(ctx context.Context, shortURL string) (*domain.ShortURL, error)
+	Update(ctx context.Context, id, url string, ttl int) error
+	Delete(ctx context.Context, shortUrl string) error
 }
 
 type service struct {
-	rnd    *rand.Rand
-	urlDAO repository.Repository
+	rnd        *rand.Rand
+	repository repository.Repository
 }
 
-func NewService(urlDAO repository.Repository) Service {
+func NewService(repository repository.Repository) Service {
 	return &service{
-		rnd:    rand.New(rand.NewSource(time.Now().UnixNano())),
-		urlDAO: urlDAO,
+		rnd:        rand.New(rand.NewSource(time.Now().UnixNano())),
+		repository: repository,
 	}
 }
 
-func (s *service) Shorten(ctx context.Context, url string, ttlDays int) error {
+func (s *service) Shorten(ctx context.Context, url string, ttlDays int) ([]byte, error) {
 	shortURL := &domain.ShortURL{
 		URL:       url,
 		ExpiredAt: getExpirationTime(ttlDays),
@@ -45,66 +41,61 @@ func (s *service) Shorten(ctx context.Context, url string, ttlDays int) error {
 
 	for i := 0; i < 10; i++ {
 		shortURL.Id = s.generateRandomId()
-		err := s.urlDAO.Insert(ctx, shortURL)
+
+		err := s.repository.Insert(ctx, shortURL)
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("Shorten.Insert: %w", err)
 		}
-		//returnedUrl := fmt.Sprintf("localhost:8080/%s", shortURL.Id)
 
 		if !mongo.IsDuplicateKeyError(err) {
-			return err
+			break
+		} else {
+			return nil, fmt.Errorf("Shorten.IsDuplicateKeyError: %w", err)
 		}
 	}
 
-	return nil
+	// display our short URL
+	displayedMessage := []byte(fmt.Sprintf(viper.GetString("db.host") + viper.GetString("port") + "/" + shortURL.Id))
+
+	return displayedMessage, nil
 }
 
-func (s *service) GetFullURL(ctx context.Context, shortURL string) (string, error) {
-	sURL, err := s.urlDAO.FindByID(ctx, shortURL)
-	if err != nil {
-		return "", err
-	}
-
-	return sURL.URL, nil
+func (s *service) GetFullURL(ctx context.Context, shortURL string) (*domain.ShortURL, error) {
+	return s.repository.FindByID(ctx, shortURL)
 }
 
-func (s *service) Update(ctx context.Context, id, url string, ttl int) (string, error) {
+func (s *service) Update(ctx context.Context, shortURL, url string, ttl int) error {
 	// find our full url with short url
-	shortUrl, err := s.urlDAO.FindByID(ctx, id)
+	shortUrl, err := s.repository.FindByID(ctx, shortURL)
 	if err != nil {
-		return "", fmt.Errorf("Update/FindByID: %w", err)
+		return fmt.Errorf("Update.FindByID: %w", err)
 	}
 
 	shortUrl.URL = url
 	// create new ttl if it exists
 	shortUrl.ExpiredAt = getExpirationTime(ttl)
 
-	return "http.StatusOK", s.urlDAO.Update(ctx, shortUrl)
+	return s.repository.Update(ctx, shortUrl)
 }
 
-func (s *service) Delete(ctx context.Context) (string, error) {
-
-	return "", nil
+func (s *service) Delete(ctx context.Context, shortUrl string) error {
+	return s.repository.Delete(ctx, shortUrl)
 }
 
 func getExpirationTime(ttlDays int) *time.Time {
 	if ttlDays <= 0 {
 		return nil
 	}
-	t := time.Now().Add(time.Hour * 24 * time.Duration(ttlDays))
+	t := time.Now().Add(time.Hour * configs.Hours * time.Duration(ttlDays))
 
 	return &t
 }
 
-var symbols = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-
-const idLength = 6
-
 func (s *service) generateRandomId() string {
-	id := make([]rune, idLength)
+	id := make([]rune, configs.IdLength)
 
 	for i := range id {
-		id[i] = symbols[s.rnd.Intn(len(symbols))]
+		id[i] = configs.Symbols[s.rnd.Intn(len(configs.Symbols))]
 	}
 	return string(id)
 }

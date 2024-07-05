@@ -2,10 +2,10 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"shortener/configs"
 	"shortener/internal/handler_http"
 	"shortener/internal/repository"
 	"shortener/internal/service"
@@ -13,45 +13,48 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func Run(ctx context.Context) error {
+func Run(ctx context.Context) {
+	logrus.SetFormatter(new(logrus.JSONFormatter))
+
 	// load configs variable
 	if err := configsInit(); err != nil {
-		return fmt.Errorf("Run.configsInit: %w", err)
+		panic(err)
 	}
 
 	// load env variable
 	if err := godotenv.Load(); err != nil {
-		return fmt.Errorf("app/Run/godotenv: %w", err)
+		panic(err)
 	}
 
-	clientOptions := options.Client().ApplyURI("mongodb://root:" + os.Getenv("DB_PASSWORD") + "qwerty@localhost:27017").SetAuth(options.Credential{ // чекнуть что это
+	clientOptions := options.Client().ApplyURI("mongodb://" + viper.GetString("db.host") + "27017").SetAuth(options.Credential{
 		Username: viper.GetString("db.username"),
 		Password: os.Getenv("DB_PASSWORD"),
 	})
 	// if request handle  more than 10 seconds cancle the request
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), configs.ContextWaiting*time.Second)
 	defer cancel()
 
 	// connect to MongoDB
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		return fmt.Errorf("Run/Connect: %w", err)
+		panic(err)
 	}
 	// defer disconnecting
 	defer func() {
 		if err := client.Disconnect(ctx); err != nil {
-			log.Fatal(fmt.Errorf("Run/Disconnect: %w", err))
+			panic(err)
 		}
 	}()
 
 	repository, err := repository.NewRepository(ctx, client)
 	if err != nil {
-		log.Fatal(fmt.Errorf("Run/NewRepository: %w", err))
+		panic(err)
 	}
 
 	service := service.NewService(repository)
@@ -59,7 +62,9 @@ func Run(ctx context.Context) error {
 
 	log.Println("The database was created and indices were set up successfully")
 
-	return http.ListenAndServe("localhost:8080", handler.InitRoutes())
+	if err = http.ListenAndServe(viper.GetString("db.host")+viper.GetString("port"), handler.InitRoutes()); err != nil {
+		panic(err)
+	}
 }
 
 func configsInit() error {
